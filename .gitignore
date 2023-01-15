@@ -1,0 +1,10 @@
+*.pyc
+*.txt
+*.svg
+*.bak
+*.png
+*.gpf
+*.dxf
+/dxf_file
+.idea/
+/venv
