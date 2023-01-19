@@ -105,7 +105,7 @@ def find_shape_from_dxf_new(file_name):
             temp_doc_msp = temp_doc.modelspace()
             # approximating to polyline
             bspline = e.construction_tool()
-            xy_pts = [p.xy for p in bspline.flattening(distance=1, segments=500)]
+            xy_pts = [p.xy for p in bspline.flattening(distance=1, segments=20)]
             polyline_polygon = []
             for x, y, _ in xy_pts:
                 polyline_polygon.append([x * COUNTOUR_SCALING, y * COUNTOUR_SCALING])

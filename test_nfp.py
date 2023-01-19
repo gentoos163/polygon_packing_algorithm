@@ -4,6 +4,7 @@ from tools import input_utls, coordinates_utls
 from settings import BIN_WIDTH, BIN_NORMAL, BIN_CUT_BIG
 import turtle as t
 from gcode_writer import coordinates_to_gcode, save_to_txt
+import time
 
 
 def visualize_shape_points(dxfProjectFilesData: list):
@@ -22,6 +23,7 @@ def visualize_shape_points(dxfProjectFilesData: list):
 
 
 if __name__ == '__main__':
+    start = time.time()
     n = Nester()
     dxfProjectFiles = [
         'art1045_1_LApa.dxf',
@@ -35,9 +37,13 @@ if __name__ == '__main__':
         #'E5.dxf',
         #'T9.dxf'
     ]
+    shapes = []
     for file in dxfProjectFiles:
-        s = input_utls.input_polygon(f'input_data/{file}')
-        n.add_objects(s)
+        ss = input_utls.input_polygon(f'input_data/{file}')
+        for shape in ss:
+            shapes.append(shape)
+
+    n.add_objects(shapes)
 
     if n.shapes_max_length > BIN_WIDTH:
         BIN_NORMAL[2][0] = n.shapes_max_length
@@ -58,13 +64,13 @@ if __name__ == '__main__':
     shape_coordinates = get_polygon_coordinates(polygons)
     print('\n')
     print(shape_coordinates)
-    interpolated_shape_coordinates = []
-    for c in shape_coordinates:
-        interpolated_shape_coordinates.append(coordinates_utls.interpolate_coordinates(c))
+    #interpolated_shape_coordinates = []
+    #for c in shape_coordinates:
+    #    interpolated_shape_coordinates.append(coordinates_utls.interpolate_coordinates(c))
 
     # vizualizeShapePoinst(shape_coordinates)
     # конвертируем координаты в формат gcode
-    txt = coordinates_to_gcode(interpolated_shape_coordinates)
+    txt = coordinates_to_gcode(shape_coordinates)
     print(txt)
     save_to_txt(txt)
     
@@ -74,6 +80,8 @@ if __name__ == '__main__':
     # Вывод результата в графическом окне
     # Цикл определенное количество раз
     # content_loop_rate(best, n, loop_time=1)   # T7 , T4
+    end = time.time()
 
-
+    print('Running time: %s Seconds' % (end - start))
+    print('Running time: %s Minuts' % ((end - start) / 60))
 

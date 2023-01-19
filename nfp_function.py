@@ -56,7 +56,9 @@ class Nester:
         p_id = 0
         total_area = 0
         for obj in objects:
-            points = self.clean_polygon(obj)
+            # points = self.clean_polygon(obj) # упрощает полигоны
+            points = obj
+
             shape = {
                 'area': 0,
                 'p_id': str(p_id),
