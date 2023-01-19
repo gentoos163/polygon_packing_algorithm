@@ -64,9 +64,6 @@ if __name__ == '__main__':
     shape_coordinates = get_polygon_coordinates(polygons)
     print('\n')
     print(shape_coordinates)
-    #interpolated_shape_coordinates = []
-    #for c in shape_coordinates:
-    #    interpolated_shape_coordinates.append(coordinates_utls.interpolate_coordinates(c))
 
     # vizualizeShapePoinst(shape_coordinates)
     # конвертируем координаты в формат gcode
