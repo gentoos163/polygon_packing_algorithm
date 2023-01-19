@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from nfp_function import Nester, content_loop_rate, set_target_loop, get_polygon_coordinates, get_result_npf
-from tools import input_utls
+from tools import input_utls, coordinates_utls
 from settings import BIN_WIDTH, BIN_NORMAL, BIN_CUT_BIG
 import turtle as t
 from gcode_writer import coordinates_to_gcode, save_to_txt
@@ -25,9 +25,9 @@ if __name__ == '__main__':
     n = Nester()
     dxfProjectFiles = [
         'art1045_1_LApa.dxf',
+        'art1045_1_LApa.dxf',
+        'art1045_1_LApa.dxf',
         'art1045_3_L.dxf',
-        'art1045_1_LApa.dxf',
-        'art1045_1_LApa.dxf',
         'art1045_3_L.dxf',
         'art1045_3_L.dxf',
         'art1045_3_L.dxf',
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         BIN_NORMAL[2][0] = n.shapes_max_length
         BIN_NORMAL[3][0] = n.shapes_max_length
 
-    # выброть область
+    # выбрать область
     n.add_container(BIN_NORMAL)
     # выполнить расчет
     n.run()
@@ -58,10 +58,13 @@ if __name__ == '__main__':
     shape_coordinates = get_polygon_coordinates(polygons)
     print('\n')
     print(shape_coordinates)
+    interpolated_shape_coordinates = []
+    for c in shape_coordinates:
+        interpolated_shape_coordinates.append(coordinates_utls.interpolate_coordinates(c))
 
     # vizualizeShapePoinst(shape_coordinates)
     # конвертируем координаты в формат gcode
-    txt = coordinates_to_gcode(shape_coordinates)
+    txt = coordinates_to_gcode(interpolated_shape_coordinates)
     print(txt)
     save_to_txt(txt)
     

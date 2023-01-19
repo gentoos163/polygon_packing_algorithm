@@ -1,4 +1,4 @@
-# С&P problem, Nesting
+# С&P problem, nesting, dxf, gcode
 
 ## 1. Алгоритм для решения задачи упаковки полигонов в рабочей области 
 ![doc_2023-01-15_21-32-12.png](screenshots%2Fdoc_2023-01-15_21-32-12.png)
