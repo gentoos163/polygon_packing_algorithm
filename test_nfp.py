@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from nfp_function import Nester, content_loop_rate, set_target_loop, get_polygon_coordinates, get_result_npf
-from tools import input_utls, coordinates_utls
+from tools import input_utls
 from settings import BIN_WIDTH, BIN_NORMAL, BIN_CUT_BIG
 import turtle as t
 from gcode_writer import coordinates_to_gcode, save_to_txt
