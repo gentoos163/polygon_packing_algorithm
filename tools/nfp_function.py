@@ -10,8 +10,9 @@ import matplotlib.patches as patches
 import pyclipper
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
-from settings import SPACING, ROTATIONS, BIN_HEIGHT, POPULATION_SIZE, MUTA_RATE
+from settings import SPACING, ROTATIONS, BIN_HEIGHT, POPULATION_SIZE, MUTA_RATE, SIMPLIFYING_POLYGONS
 from copy import deepcopy
+
 
 class Nester:
     def __init__(self, container=None, shapes=None):
@@ -56,15 +57,17 @@ class Nester:
         p_id = 0
         total_area = 0
         for obj in objects:
-            # points = self.clean_polygon(obj) # упрощает полигоны
-            points = obj
+            if SIMPLIFYING_POLYGONS:
+                points = self.clean_polygon(obj) # упрощает полигоны
+            else:
+                points = obj
 
             shape = {
                 'area': 0,
                 'p_id': str(p_id),
                 'points': [{'x': p[0], 'y': p[1]} for p in points]
             }
-            # 确定多边形的线段方向
+            # Определить ориентацию сегмента многоугольника
             area = nfp_utls.polygon_area(shape['points'])
             if area > 0:
                 shape['points'].reverse()
@@ -73,7 +76,7 @@ class Nester:
             total_area += shape['area']
             self.shapes.append(shape)
 
-        # 如果是一般布，需要这个尺寸
+        # Если это обычная ткань, нужен этот размер
         self.shapes_max_length = total_area / BIN_HEIGHT * 3
 
     def add_container(self, container):
