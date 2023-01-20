@@ -25,7 +25,7 @@ def get_polygons_nested_gcode(dxf_project_files):
     n.add_container(BIN_NORMAL)
     # выполнить расчет
     n.run()
-    #показать результат нестинга
+    # показать результат нестинга
     n.show_result()
 
     polygons = get_result_npf(n.best['placements'], n.shapes)
