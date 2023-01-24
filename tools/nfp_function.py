@@ -27,25 +27,25 @@ class Nester:
            n.show() # creates a preview (compound) of the results
            """
         self.container = container  # 承载组件的容器
-        self.shapes = shapes        # 组件信息
-        self.shapes_max_length = 0   # 在一般无限长的布，设计一个布的尺寸
+        self.shapes = shapes  # 组件信息
+        self.shapes_max_length = 0  # 在一般无限长的布，设计一个布的尺寸
         self.results = list()  # storage for the different results
-        self.nfp_cache = {}     # 缓存中间计算结果
+        self.nfp_cache = {}  # 缓存中间计算结果
         # 遗传算法的参数
         self.config = {
             'curveTolerance': 0,  # 允许的最大误差转换贝济耶和圆弧线段。在SVG的单位。更小的公差将需要更长的时间来计算
-            'spacing': SPACING,           # 组件间的间隔
-            'rotations': ROTATIONS,         # 旋转的颗粒度，360°的n份，如：4 = [0, 90 ,180, 270]
-            'populationSize': POPULATION_SIZE,    # 基因群数量
-            'mutationRate': MUTA_RATE,      # 变异概率
-            'useHoles': True,       # 是否有洞，暂时都是没有洞
+            'spacing': SPACING,  # 组件间的间隔
+            'rotations': ROTATIONS,  # 旋转的颗粒度，360°的n份，如：4 = [0, 90 ,180, 270]
+            'populationSize': POPULATION_SIZE,  # 基因群数量
+            'mutationRate': MUTA_RATE,  # 变异概率
+            'useHoles': True,  # 是否有洞，暂时都是没有洞
             'exploreConcave': False  # 寻找凹面，暂时是否
         }
 
-        self.GA = None        # 遗传算法类
-        self.best = None      # 记录最佳结果
-        self.worker = None    # 根据NFP结果，计算每个图形的转移数据
-        self.container_bounds = None   # 容器的最小包络矩形作为输出图的坐标
+        self.GA = None  # 遗传算法类
+        self.best = None  # 记录最佳结果
+        self.worker = None  # 根据NFP结果，计算每个图形的转移数据
+        self.container_bounds = None  # 容器的最小包络矩形作为输出图的坐标
 
     def add_objects(self, objects):
         """add_objects(objects): adds polygon objects to the nester"""
@@ -58,7 +58,7 @@ class Nester:
         total_area = 0
         for obj in objects:
             if SIMPLIFYING_POLYGONS:
-                points = self.clean_polygon(obj) # упрощает полигоны
+                points = self.clean_polygon(obj)  # упрощает полигоны
             else:
                 points = obj
 
@@ -86,7 +86,7 @@ class Nester:
 
         container = self.clean_polygon(container)
 
-        self.container['points'] = [{'x': p[0], 'y':p[1]} for p in container]
+        self.container['points'] = [{'x': p[0], 'y': p[1]} for p in container]
         self.container['p_id'] = '-1'
         xbinmax = self.container['points'][0]['x']
         xbinmin = self.container['points'][0]['x']
@@ -229,7 +229,7 @@ class Nester:
 
         # 计算图形的转移量和适应值的类
         self.worker = placement_worker.PlacementWorker(
-             self.container, place_list, ids, rotations, self.config, self.nfp_cache)
+            self.container, place_list, ids, rotations, self.config, self.nfp_cache)
 
         # 计算所有图形两两组合的相切多边形（NFP）
         pair_list = list()
@@ -351,9 +351,9 @@ class Nester:
         miter_limit = 2
         co = pyclipper.PyclipperOffset(miter_limit, self.config['curveTolerance'])
         co.AddPath(polygon, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-        result = co.Execute(1*offset)
+        result = co.Execute(1 * offset)
         if not is_list:
-            result = [{'x': p[0], 'y':p[1]} for p in result[0]]
+            result = [{'x': p[0], 'y': p[1]} for p in result[0]]
         return result
 
     def clean_polygon(self, polygon):
@@ -374,6 +374,41 @@ class Nester:
         if clean is None or len(clean) == 0:
             return None
         return clean
+
+    def get_result_npf(self):
+        shift_data = self.best['placements']
+        polygons = self.shapes
+
+        shapes = list()
+        for polygon in polygons:
+            contour = [[p['x'], p['y']] for p in polygon['points']]
+            shapes.append(Polygon(contour))
+
+        solution = list()
+
+        for s_data in shift_data:
+            # Цикл представляет собой набор контейнера
+            tmp_bin = list()
+            for move_step in s_data:
+                if move_step['rotation'] != 0:
+                    # Вращение начала координат
+                    shapes[int(move_step['p_id'])].rotate(math.pi / 180 * move_step['rotation'], 0, 0)
+                # перевод
+                shapes[int(move_step['p_id'])].shift(move_step['x'], move_step['y'])
+                tmp_bin.append(shapes[int(move_step['p_id'])])
+                # total_area += shapes[int(move_step['p_id'])].area(0)
+            # Использование текущего набора
+            solution.append(tmp_bin)
+
+        return solution
+
+    def get_polygon_coordinates(self):
+        polygons = self.get_result_npf()
+        result = []
+        for poligon in polygons:
+            for s in poligon:
+                result.append(deepcopy(s.contour(0)))
+        return result
 
 
 def draw_result(shift_data, polygons, bin_polygon, bin_bounds):
@@ -415,39 +450,6 @@ def draw_result(shift_data, polygons, bin_polygon, bin_bounds):
     # показать результат
     draw_polygon(solution, rates, bin_bounds, bin_shape)
 
-# pom+
-def get_result_npf(shift_data, polygons):
-
-    shapes = list()
-    for polygon in polygons:
-        contour = [[p['x'], p['y']] for p in polygon['points']]
-        shapes.append(Polygon(contour))
-
-    solution = list()
-
-    for s_data in shift_data:
-        # Цикл представляет собой набор контейнера
-        tmp_bin = list()
-        for move_step in s_data:
-            if move_step['rotation'] != 0:
-                # Вращение начала координат
-                shapes[int(move_step['p_id'])].rotate(math.pi / 180 * move_step['rotation'], 0, 0)
-            # перевод
-            shapes[int(move_step['p_id'])].shift(move_step['x'], move_step['y'])
-            tmp_bin.append(shapes[int(move_step['p_id'])])
-            #total_area += shapes[int(move_step['p_id'])].area(0)
-        # Использование текущего набора
-        solution.append(tmp_bin)
-
-    return solution
-
-def get_polygon_coordinates(polygons):
-    result = []
-    for poligon in polygons:
-        for s in poligon:
-            result.append(deepcopy(s.contour(0)))
-    return result
-# pom-
 
 class genetic_algorithm():
     """
@@ -488,11 +490,11 @@ class genetic_algorithm():
         """
         angle_list = list()
         for i in range(0, self.config['rotations']):
-            angle_list.append(i * (360/self.config['rotations']))
+            angle_list.append(i * (360 / self.config['rotations']))
 
         # 打乱顺序
         def shuffle_array(data):
-            for i in range(len(data)-1, 0, -1):
+            for i in range(len(data) - 1, 0, -1):
                 j = random.randint(0, i)
                 data[i], data[j] = data[j], data[i]
             return data
@@ -515,8 +517,8 @@ class genetic_algorithm():
         }
         for i in range(0, len(clone['placement'])):
             if random.random() < 0.01 * self.config['mutationRate']:
-                if i+1 < len(clone['placement']):
-                    clone['placement'][i],clone['placement'][i+1] = clone['placement'][i+1], clone['placement'][i]
+                if i + 1 < len(clone['placement']):
+                    clone['placement'][i], clone['placement'][i + 1] = clone['placement'][i + 1], clone['placement'][i]
 
         if random.random() < 0.01 * self.config['mutationRate']:
             clone['rotation'][i] = self.random_angle(clone['placement'][i])
@@ -555,11 +557,11 @@ class genetic_algorithm():
             if (rand > lower) and (rand < upper):
                 return pop[i]
             lower = upper
-            upper += 2 * weight * float(pop_len-i)/pop_len
+            upper += 2 * weight * float(pop_len - i) / pop_len
         return pop[0]
 
     def mate(self, male, female):
-        cutpoint = random.randint(0, len(male['placement'])-1)
+        cutpoint = random.randint(0, len(male['placement']) - 1)
         gene1 = male['placement'][:cutpoint]
         rot1 = male['rotation'][:cutpoint]
 
@@ -572,12 +574,12 @@ class genetic_algorithm():
                     return True
             return False
 
-        for i in range(len(female['placement'])-1, -1, -1):
+        for i in range(len(female['placement']) - 1, -1, -1):
             if not contains(gene1, female['placement'][i][0]):
                 gene1.append(female['placement'][i])
                 rot1.append(female['rotation'][i])
 
-        for i in range(len(male['placement'])-1, -1, -1):
+        for i in range(len(male['placement']) - 1, -1, -1):
             if not contains(gene2, male['placement'][i][0]):
                 gene2.append(male['placement'][i])
                 rot2.append(male['rotation'][i])
@@ -599,16 +601,16 @@ def minkowski_difference(A, B):
     largest_area = None
     clipper_nfp = None
     for p in solution:
-        p = [{'x': i[0], 'y':i[1]} for i in p]
+        p = [{'x': i[0], 'y': i[1]} for i in p]
         sarea = nfp_utls.polygon_area(p)
         if largest_area is None or largest_area > sarea:
             clipper_nfp = p
             largest_area = sarea
 
     clipper_nfp = [{
-                    'x': clipper_nfp[i]['x'] + Bc[0][0] * -1,
-                    'y':clipper_nfp[i]['y'] + Bc[0][1] * -1
-                   } for i in range(0, len(clipper_nfp))]
+        'x': clipper_nfp[i]['x'] + Bc[0][0] * -1,
+        'y': clipper_nfp[i]['y'] + Bc[0][1] * -1
+    } for i in range(0, len(clipper_nfp))]
     return [clipper_nfp]
 
 
@@ -621,14 +623,14 @@ def draw_polygon_png(solution, bin_bounds, bin_shape, path=None):
     fig1.suptitle('Polygon packing', fontweight='bold')
     FigureCanvas(fig1)
 
-    i_pic = 1   # 记录图片的索引
+    i_pic = 1  # 记录图片的索引
     for shapes in solution:
         # 坐标设置
         ax = fig1.add_subplot(num_bin, 1, i_pic, aspect='equal')
         ax.set_title('Num %d bin' % i_pic)
         i_pic += 1
-        ax.set_xlim(bin_bounds['x']-10, bin_bounds['width']+50)
-        ax.set_ylim(bin_bounds['y']-10, bin_bounds['height']+50)
+        ax.set_xlim(bin_bounds['x'] - 10, bin_bounds['width'] + 50)
+        ax.set_ylim(bin_bounds['y'] - 10, bin_bounds['height'] + 50)
 
         output_obj = list()
         output_obj.append(patches.Polygon(bin_shape.contour(0), fc='green'))
@@ -658,7 +660,7 @@ def draw_polygon(solution, rates, bin_bounds, bin_shape):
         # 坐标设置
         ax = plt.subplot(num_bin, 1, i_pic, aspect='equal')
         # ax = fig1.set_subplot(num_bin, 1, i_pic, aspect='equal')
-        ax.set_title('Num %d bin, rate is %0.4f' % (i_pic, rates[i_pic-1]))
+        ax.set_title('Num %d bin, rate is %0.4f' % (i_pic, rates[i_pic - 1]))
         i_pic += 1
         ax.set_xlim(bin_bounds['x'] - 10, bin_bounds['width'] + 50)
         ax.set_ylim(bin_bounds['y'] - 10, bin_bounds['height'] + 50)

@@ -1,5 +1,5 @@
 # coding=utf8
-from settings import COUNTOUR_SCALING, SIMPLIFYING_POLYGONS
+from settings import COUNTOUR_SCALING, SIMPLIFYING_POLYGONS, SPLIT_SPLINES
 import ezdxf as ez
 
 
@@ -12,6 +12,16 @@ def find_shape_from_dxf(file_name):
     dxf = ez.readfile(file_name)
     all_shapes = list()
     new_polygon = dict()
+    spline_polygon = []
+    first_spline = True
+    """
+    В моей задаче в файлах могут быть совмещенные контуры, т.е. автомобильные 
+    коврики и в них отверстия под люверсы.
+    Поэтому было решено разделить коврики на отдельные файлы. Но осталась проблема с люверсами.
+    Для ее решения я точки координат коврика и люверсов представляю одним контуром,
+    но в начало люверсов помещаю задваиване начальной позиции, чтобы после размещения найти их
+    и разделить на отдельные контуры.
+    """
     for e in dxf.entities:
         if e.dxftype() == 'LINE':
             # print (e.start, e.end)
@@ -22,8 +32,7 @@ def find_shape_from_dxf(file_name):
             if end_key in new_polygon:
                 # Найти замкнутый многоугольник
                 for points in new_polygon[end_key]:
-                    points[0] = points[0] * COUNTOUR_SCALING
-                    points[1] = points[1] * COUNTOUR_SCALING
+                    points[0], points[1] = scaling_coordinates(x=points[0], y=points[1])
                 all_shapes.append(new_polygon[end_key])
                 new_polygon.pop(end_key)
                 continue
@@ -52,21 +61,73 @@ def find_shape_from_dxf(file_name):
                     e.dxf.start[0], e.dxf.start[1])] = [[e.dxf.start[0], e.dxf.start[1]], [e.dxf.end[0], e.dxf.end[1]]]
 
         elif e.dxftype() == 'SPLINE':
-            spline_polygon = []
+            if SPLIT_SPLINES:
+                spline_polygon = []
+            first_spline_points = True
             if SIMPLIFYING_POLYGONS:
                 for x, y, _ in e.control_points:
-                    spline_polygon.append([x * COUNTOUR_SCALING, y * COUNTOUR_SCALING])
+                    if not SPLIT_SPLINES:
+                        add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)
+                    first_spline_points = False
+                    spline_polygon.append(scaling_coordinates(x=x, y=y))
             else:
                 bspline = e.construction_tool()
                 xy_pts = [p.xy for p in bspline.flattening(distance=1, segments=20)]
                 for x, y, _ in xy_pts:
-                    spline_polygon.append([x * COUNTOUR_SCALING, y * COUNTOUR_SCALING])
-
-            all_shapes.append(spline_polygon)
+                    if not SPLIT_SPLINES:
+                        add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)
+                    first_spline_points = False
+                    spline_polygon.append(scaling_coordinates(x=x, y=y))
+            first_spline = False
+            if SPLIT_SPLINES:
+                all_shapes.append(spline_polygon)
+    if not SPLIT_SPLINES and len(spline_polygon):
+        all_shapes.append(spline_polygon)
     return all_shapes
 
 
-def input_polygon(dxf_file):
+def scaling_coordinates(x, y) -> list:
+    return [x * COUNTOUR_SCALING, y * COUNTOUR_SCALING]
+
+
+def add_spline_dots_flag(first_spline: bool, first_spline_points: bool, points: list, spline_polygon: list):
+    if first_spline or not first_spline_points:
+        return
+    spline_polygon.append(scaling_coordinates(x=points[0], y=points[1]))
+    spline_polygon.append(scaling_coordinates(x=points[0], y=points[1]))
+    spline_polygon.append(scaling_coordinates(x=points[0], y=points[1]))
+
+
+def find_flags_and_break_shapes(shapes: list) -> list:
+    new_shapes = []
+    for i in range(len(shapes)):
+        shape_points = shapes[i]
+        shape_points_length = len(shape_points)
+        new_shape_points = []
+        skip = 0
+        for j in range(shape_points_length):
+            if skip > 0:
+                skip -= 1
+                continue
+            x, y = shape_points[j]
+            if j < shape_points_length-5 and \
+                    shape_points[j+1][0] == x and \
+                    shape_points[j+1][1] == y and \
+                    shape_points[j+2][0] == x and \
+                    shape_points[j+2][1] == y and \
+                    shape_points[j+3][0] == x and \
+                    shape_points[j+3][1] == y:
+                new_shapes.append(new_shape_points)
+                new_shape_points = []
+                skip = 3
+                continue
+            new_shape_points.append((x, y))
+        new_shapes.append(new_shape_points)
+
+    return new_shapes
+
+
+def input_polygon(dxf_file) -> list:
     """
     :param dxf_file: путь к файлу
     :return:

@@ -1,8 +1,8 @@
 from decimal import Decimal, ROUND_FLOOR
 
 
-def coordinates_to_gcode(coordinates: list) -> str:
-    if not len(coordinates):
+def coordinates_to_gcode(shapes: list) -> str:
+    if not len(shapes):
         return ''
 
     gcode = '''G90G17G21
@@ -10,20 +10,20 @@ def coordinates_to_gcode(coordinates: list) -> str:
     S1
     G00 Z10.000 F15000'''.replace('    ', '')
 
-    coordinates_length = len(coordinates)
-    fisrt = True
+    coordinates_length = len(shapes)
+    first_shape = True
+    skip = 0
     for i in range(coordinates_length):
-        shape = coordinates[i]
-        skip = 0
-        if fisrt:
+        shape = shapes[i]
+        if first_shape:
             skip = 2
-            fisrt = False
+            first_shape = False
             gcode = add_offset_points(gcode, pos1=shape[0], pos2=shape[1])
         shape_length = len(shape)
-        fisrt_point = None
+        first_point = None
         for j in range(shape_length):
             if j == 0:
-                fisrt_point = shape[j]
+                first_point = shape[j]
             if skip > 0:
                 skip -= 1
                 continue
@@ -32,14 +32,14 @@ def coordinates_to_gcode(coordinates: list) -> str:
                 gcode = add_intermediate_point(gcode, x=point[0], y=point[1])
             elif j == shape_length - 1 and i < coordinates_length - 1:
                 gcode = add_intermediate_point(gcode, x=point[0], y=point[1])
-                gcode = add_intermediate_point(gcode, x=fisrt_point[0], y=fisrt_point[1])
-                gcode = add_lifting_point(gcode, x=fisrt_point[0], y=fisrt_point[1])
-                gcode = add_offset_points(gcode, pos1=coordinates[i + 1][0], pos2=coordinates[i + 1][1])
+                gcode = add_intermediate_point(gcode, x=first_point[0], y=first_point[1])
+                gcode = add_lifting_point(gcode, x=first_point[0], y=first_point[1])
+                gcode = add_offset_points(gcode, pos1=shapes[i+1][0], pos2=shapes[i+1][1])
                 skip = 2
             else:
                 gcode = add_intermediate_point(gcode, x=point[0], y=point[1])
-                gcode = add_intermediate_point(gcode, x=fisrt_point[0], y=fisrt_point[1])
-                gcode = add_last_point(gcode, x=fisrt_point[0], y=fisrt_point[1])
+                gcode = add_intermediate_point(gcode, x=first_point[0], y=first_point[1])
+                gcode = add_last_point(gcode, x=first_point[0], y=first_point[1])
 
     gcode += '\nM30'
 
