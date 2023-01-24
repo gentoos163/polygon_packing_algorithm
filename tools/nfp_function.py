@@ -453,15 +453,15 @@ def draw_result(shift_data, polygons, bin_polygon, bin_bounds):
 
 class genetic_algorithm():
     """
-    遗传算法类
+    Генетические алгоритмы
     """
 
     def __init__(self, adam, bin_polygon, config):
         """
-        初始化参数，根据参数生成基因群
-        :param adam: 图形
+        Инициализируйте параметры и сгенерируйте группы генов в соответствии с параметрами
+        :param adam: графика
         :param bin_polygon: 面布
-        :param config: 算法参数
+        :param config: Параметры алгоритма
         """
         self.bin_bounds = bin_polygon['points']
         self.bin_bounds = {
@@ -589,7 +589,7 @@ class genetic_algorithm():
 
 def minkowski_difference(A, B):
     """
-    两个多边形的相切空间
+    Касательное пространство двух многоугольников
     http://www.angusj.com/delphi/clipper/documentation/Docs/Units/ClipperLib/Functions/MinkowskiDiff.htm
     :param A:
     :param B:
