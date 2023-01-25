@@ -1,10 +1,10 @@
 # С&P problem, nesting, dxf, gcode
 
 ## 1. Алгоритм для решения задачи упаковки полигонов в рабочей области 
-![Packing](https://user-images.githubusercontent.com/45397736/213849240-235f390d-9589-49d0-a8e7-b82d403ffd40.png)
+![packing2](https://user-images.githubusercontent.com/45397736/214505413-c7065105-1907-4d02-9b4d-da061f60474a.png)
 
 ## 2. Преобразование координат в набор инструкций языка *gcode*
-![gcode](https://user-images.githubusercontent.com/45397736/213849239-67fa2994-5c5a-46dd-a37c-44176b971e3b.png)
+![gcode2](https://user-images.githubusercontent.com/45397736/214505419-2f6ddbdd-5021-41c8-9fd5-9b735dbeb6b1.png)
 
 ### *Дополнительная информация*
 1. Оригинальный [репозиторий](https://github.com/liangxuCHEN/no_fit_polygon) с алгоритмом
