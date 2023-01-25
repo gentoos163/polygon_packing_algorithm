@@ -13,21 +13,19 @@ def coordinates_to_gcode(shapes: list) -> str:
     coordinates_length = len(shapes)
     first_shape = True
     skip = 0
-    for i in range(coordinates_length):
-        shape = shapes[i]
+    for i, shape in enumerate(shapes):
         if first_shape:
             skip = 2
             first_shape = False
             gcode = add_offset_points(gcode, pos1=shape[0], pos2=shape[1])
         shape_length = len(shape)
         first_point = None
-        for j in range(shape_length):
+        for j, point in enumerate(shape):
             if j == 0:
                 first_point = shape[j]
             if skip > 0:
                 skip -= 1
                 continue
-            point = shape[j]
             if j < shape_length - 1:
                 gcode = add_intermediate_point(gcode, x=point[0], y=point[1])
             elif j == shape_length - 1 and i < coordinates_length - 1:

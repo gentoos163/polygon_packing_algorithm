@@ -147,7 +147,7 @@ class Nester:
         if self.GA is None:
             offset_bin = copy.deepcopy(self.container)
             offset_bin['points'] = self.polygon_offset(self.container['points'], self.config['spacing'])
-            self.GA = genetic_algorithm(adam, offset_bin, self.config)
+            self.GA = GeneticAlgorithm(adam, offset_bin, self.config)
         else:
             self.GA.generation()
 
@@ -452,7 +452,7 @@ def draw_result(shift_data, polygons, bin_polygon, bin_bounds):
     draw_polygon(solution, rates, bin_bounds, bin_shape)
 
 
-class genetic_algorithm():
+class GeneticAlgorithm():
     """
     Генетические алгоритмы
     """

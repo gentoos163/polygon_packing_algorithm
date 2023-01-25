@@ -100,16 +100,15 @@ def add_spline_dots_flag(first_spline: bool, first_spline_points: bool, points: 
 
 def find_flags_and_break_shapes(shapes: list) -> list:
     new_shapes = []
-    for i in range(len(shapes)):
-        shape_points = shapes[i]
+    for i, shape_points in enumerate(shapes):
         shape_points_length = len(shape_points)
         new_shape_points = []
         skip = 0
-        for j in range(shape_points_length):
+        for j, shape_point in enumerate(shape_points):
             if skip > 0:
                 skip -= 1
                 continue
-            x, y = shape_points[j]
+            x, y = shape_point
             if j < shape_points_length-5 and \
                     shape_points[j+1][0] == x and \
                     shape_points[j+1][1] == y and \
