@@ -33,11 +33,12 @@ class Nester:
         self.nfp_cache = {}  # 缓存中间计算结果
         # 遗传算法的参数
         self.config = {
-            'curveTolerance': 0,  # 允许的最大误差转换贝济耶和圆弧线段。在SVG的单位。更小的公差将需要更长的时间来计算
+            'curveTolerance': 0,  # Максимальная ошибка, допускаемая для преобразования сегментов Безье и дуги.
+            # Единицы в SVG. Меньшие допуски требуют больше времени для расчета
             'spacing': SPACING,  # 组件间的间隔
-            'rotations': ROTATIONS,  # 旋转的颗粒度，360°的n份，如：4 = [0, 90 ,180, 270]
-            'populationSize': POPULATION_SIZE,  # 基因群数量
-            'mutationRate': MUTA_RATE,  # 变异概率
+            'rotations': ROTATIONS,  # Детализация поворота, n частей по 360°, например: 4 = [0, 90, 180, 270]
+            'populationSize': POPULATION_SIZE,  # Количество генов
+            'mutationRate': MUTA_RATE,  # Вероятность мутации
             'useHoles': True,  # 是否有洞，暂时都是没有洞
             'exploreConcave': False  # 寻找凹面，暂时是否
         }

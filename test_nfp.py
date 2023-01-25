@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 from nesting import get_polygons_nested_gcode
-import time
+from time import perf_counter
 
 
-if __name__ == '__main__':
-    start = time.time()
+def check_time(func):
+    def wrapper(*args, **kwargs):
+        start = perf_counter()
+        func(*args, **kwargs)
+        print(f'time: {(perf_counter() - start):.02f}')
+    return wrapper
+
+
+@check_time
+def main():
     dxf_project_files = [
         'art1045_1_LApa.dxf',
         'art1045_1_LApa.dxf',
@@ -20,8 +28,8 @@ if __name__ == '__main__':
 
     get_polygons_nested_gcode(dxf_project_files)
 
-    end = time.time()
 
-    print('Running time: %s Seconds' % (end - start))
-    print('Running time: %s Minuts' % ((end - start) / 60))
+if __name__ == '__main__':
+    main()
+
 

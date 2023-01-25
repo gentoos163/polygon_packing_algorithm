@@ -1,5 +1,5 @@
 # coding=utf8
-from settings import COUNTOUR_SCALING, SIMPLIFYING_POLYGONS, SPLIT_SPLINES
+from settings import CONTOUR_SCALING, SIMPLIFYING_POLYGONS, SPLIT_SPLINES
 import ezdxf as ez
 
 
@@ -87,7 +87,7 @@ def find_shape_from_dxf(file_name):
 
 
 def scaling_coordinates(x, y) -> list:
-    return [x * COUNTOUR_SCALING, y * COUNTOUR_SCALING]
+    return [x * CONTOUR_SCALING, y * CONTOUR_SCALING]
 
 
 def add_spline_dots_flag(first_spline: bool, first_spline_points: bool, points: list, spline_polygon: list):
