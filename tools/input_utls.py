@@ -64,20 +64,46 @@ def find_shape_from_dxf(file_name):
             if SPLIT_SPLINES:
                 spline_polygon = []
             first_spline_points = True
-            if SIMPLIFYING_POLYGONS:
-                for x, y, _ in e.control_points:
-                    if not SPLIT_SPLINES:
-                        add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)
-                    first_spline_points = False
-                    spline_polygon.append(scaling_coordinates(x=x, y=y))
-            else:
-                bspline = e.construction_tool()
-                xy_pts = [p.xy for p in bspline.flattening(distance=1, segments=20)]
-                for x, y, _ in xy_pts:
-                    if not SPLIT_SPLINES:
-                        add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)
-                    first_spline_points = False
-                    spline_polygon.append(scaling_coordinates(x=x, y=y))
+            # if SIMPLIFYING_POLYGONS:
+            #     for x, y, _ in e.control_points:
+            #         if not SPLIT_SPLINES:
+            #             add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)
+            #         first_spline_points = False
+            #         spline_polygon.append(scaling_coordinates(x=x, y=y))
+            # else:
+            bspline = e.construction_tool()
+            xy_pts = [p.xy for p in bspline.flattening(distance=1, segments=10)]  # 1 - 20
+            for x, y, _ in xy_pts:
+                if not SPLIT_SPLINES:
+                    add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)
+                first_spline_points = False
+                spline_polygon.append(scaling_coordinates(x=x, y=y))
+            first_spline = False
+            if SPLIT_SPLINES:
+                all_shapes.append(spline_polygon)
+        elif e.dxftype() == 'LWPOLYLINE':
+            if SPLIT_SPLINES:
+                spline_polygon = []
+            first_spline_points = True
+            xy_pts = e.get_points(format='xy')
+            for x, y in xy_pts:
+                if not SPLIT_SPLINES:
+                    add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)
+                first_spline_points = False
+                spline_polygon.append(scaling_coordinates(x=x, y=y))
+            first_spline = False
+            if SPLIT_SPLINES:
+                all_shapes.append(spline_polygon)
+
+        elif e.dxftype() == 'POLYLINE':
+            if SPLIT_SPLINES:
+                spline_polygon = []
+            first_spline_points = True
+            for x, y, _ in e.points():
+                if not SPLIT_SPLINES:
+                    add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)
+                first_spline_points = False
+                spline_polygon.append(scaling_coordinates(x=x, y=y))
             first_spline = False
             if SPLIT_SPLINES:
                 all_shapes.append(spline_polygon)

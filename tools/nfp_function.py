@@ -10,8 +10,13 @@ import matplotlib.patches as patches
 import pyclipper
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
-from settings import SPACING, ROTATIONS, BIN_HEIGHT, POPULATION_SIZE, MUTA_RATE, SIMPLIFYING_POLYGONS
+from settings import SPACING, ROTATIONS, BIN_HEIGHT, \
+    POPULATION_SIZE, MUTA_RATE, SIMPLIFYING_POLYGONS, RESULT_ROTATION_ANGLE
 from copy import deepcopy
+import numpy as np
+
+
+PI_OVER_180 = math.pi / 180
 
 
 class Nester:
@@ -33,14 +38,14 @@ class Nester:
         self.nfp_cache = {}  # 缓存中间计算结果
         # 遗传算法的参数
         self.config = {
-            'curveTolerance': 0,  # Максимальная ошибка, допускаемая для преобразования сегментов Безье и дуги.
+            'curveTolerance': 0.7,  # Максимальная ошибка, допускаемая для преобразования сегментов Безье и дуги.
             # Единицы в SVG. Меньшие допуски требуют больше времени для расчета
             'spacing': SPACING,  # 组件间的间隔
             'rotations': ROTATIONS,  # Детализация поворота, n частей по 360°, например: 4 = [0, 90, 180, 270]
             'populationSize': POPULATION_SIZE,  # Количество генов
             'mutationRate': MUTA_RATE,  # Вероятность мутации
-            'useHoles': True,  # 是否有洞，暂时都是没有洞
-            'exploreConcave': False  # 寻找凹面，暂时是否
+            'useHoles': True,  # Есть дыра или нет, дыры пока нет
+            'exploreConcave': False  # Ищите вогнутые поверхности, временно ли
         }
 
         self.GA = None  # 遗传算法类
@@ -66,7 +71,8 @@ class Nester:
             shape = {
                 'area': 0,
                 'p_id': str(p_id),
-                'points': [{'x': p[0], 'y': p[1]} for p in points]
+                'points': [{'x': p[0], 'y': p[1]} for p in points],
+                'original_points': [{'x': p[0], 'y': p[1]} for p in obj]
             }
             # Определить ориентацию сегмента многоугольника
             area = nfp_utls.polygon_area(shape['points'])
@@ -364,7 +370,9 @@ class Nester:
             return None
 
         biggest = simple[0]
-        biggest_area = pyclipper.Area(biggest)  # 给出端点，求多边形面积，端点顺序一定要是逆时针的，否则结果为负
+        biggest_area = pyclipper.Area(biggest)
+        # Учитывая конечные точки, найдите площадь многоугольника,
+        # порядок конечных точек должен быть против часовой стрелки, иначе результат будет отрицательным
         for i in range(1, len(simple)):
             area = abs(pyclipper.Area(simple[i]))
             if area > biggest_area:
@@ -380,36 +388,71 @@ class Nester:
         shift_data = self.best['placements']
         polygons = self.shapes
 
-        shapes = list()
-        for polygon in polygons:
-            contour = [[p['x'], p['y']] for p in polygon['points']]
-            shapes.append(Polygon(contour))
+        ## Старый код, на всякий случай
 
-        solution = list()
+        # shapes = list()
+        # for polygon in polygons:
+        #     if SIMPLIFYING_POLYGONS:
+        #         contour = [[p['x'], p['y']] for p in polygon['original_points']]
+        #     else:
+        #         contour = [[p['x'], p['y']] for p in polygon['points']]
+        #     shapes.append(Polygon(contour))
+        #
+        # solution = list()
+        #
+        # for s_data in shift_data:
+        #     # Цикл представляет собой набор контейнера
+        #     tmp_bin = list()
+        #     for move_step in s_data:
+        #         if move_step['rotation'] != 0:
+        #             # Вращение начала координат
+        #             shapes[int(move_step['p_id'])].rotate(PI_OVER_180 * move_step['rotation'], 0, 0)
+        #         # перевод
+        #         shapes[int(move_step['p_id'])].shift(move_step['x'], move_step['y'])
+        #         tmp_bin.append(shapes[int(move_step['p_id'])])
+        #         # total_area += shapes[int(move_step['p_id'])].area(0)
+        #     # Использование текущего набора
+        #     solution.append(tmp_bin)
 
+        shapes = [Polygon([[p['x'], p['y']] for p in polygon['original_points']]) if SIMPLIFYING_POLYGONS
+                  else Polygon([[p['x'], p['y']] for p in polygon['points']]) for polygon in polygons]
+
+
+        solution = []
         for s_data in shift_data:
-            # Цикл представляет собой набор контейнера
-            tmp_bin = list()
+            tmp_bin = []
             for move_step in s_data:
+                current_shape = shapes[int(move_step['p_id'])]
                 if move_step['rotation'] != 0:
-                    # Вращение начала координат
-                    shapes[int(move_step['p_id'])].rotate(math.pi / 180 * move_step['rotation'], 0, 0)
-                # перевод
-                shapes[int(move_step['p_id'])].shift(move_step['x'], move_step['y'])
-                tmp_bin.append(shapes[int(move_step['p_id'])])
-                # total_area += shapes[int(move_step['p_id'])].area(0)
-            # Использование текущего набора
+                    current_shape.rotate(PI_OVER_180 * move_step['rotation'], 0, 0)
+                current_shape.shift(move_step['x'], move_step['y'])
+                tmp_bin.append(current_shape)
             solution.append(tmp_bin)
+
+
+
+        # # Находим центр масс
+        # center_x = sum([shape.center()[0] for shape in solution[-1]]) / len(solution[-1])
+        # center_y = sum([shape.center[1] for shape in solution[-1]]) / len(solution[-1])
+        #
+        # # Поворачиваем все полигоны вокруг центра масс на заданный угол
+        # for polygon in solution[-1]:
+        #     polygon.rotate(-180, center_x, center_y)
 
         return solution
 
     def get_polygon_coordinates(self):
         polygons = self.get_result_npf()
-        result = []
-        for poligon in polygons:
-            for s in poligon:
-                result.append(deepcopy(s.contour(0)))
-        return result
+
+        ## Старый код, на всякий случай
+
+        # result = []
+        # for poligon in polygons:
+        #     for s in poligon:
+        #         result.append(np.copy(s.contour(0)))
+        # return result
+
+        return [np.copy(s.contour(0)) for polygon in polygons for s in polygon]
 
 
 def draw_result(shift_data, polygons, bin_polygon, bin_bounds):
@@ -613,6 +656,14 @@ def minkowski_difference(A, B):
         'y': clipper_nfp[i]['y'] + Bc[0][1] * -1
     } for i in range(0, len(clipper_nfp))]
     return [clipper_nfp]
+    # Ac = np.array([[p['x'], p['y']] for p in A['points']])
+    # Bc = np.array([[p['x'] * -1, p['y'] * -1] for p in B['points']])
+    # solution = pyclipper.MinkowskiSum(Ac, Bc, True)
+    # areas = [nfp_utls.polygon_area([{'x': i[0], 'y': i[1]} for i in p]) for p in solution]
+    # idx = np.argmin(areas)
+    # clipper_nfp = solution[idx]
+    # clipper_nfp = [{'x': clipper_nfp[i][0] + Bc[0][0] * -1, 'y': clipper_nfp[i][1] + Bc[0][1] * -1} for i in range(len(clipper_nfp))]
+    # return [clipper_nfp]
 
 
 def draw_polygon_png(solution, bin_bounds, bin_shape, path=None):
