@@ -25,14 +25,14 @@ def main():
         # 'art1045_3_L.dxf',
         # 'test/66_50x30.dxf',
         'test/1_art-3876_1_lapa.dxf',
-        'test/1_art-3876_2.dxf',
-        'test/2_art-3876_5.dxf',
-        'test/1_art-3876_5.dxf',
-
-        'test/1_art-3876_1_lapa.dxf',
-        'test/1_art-3876_2.dxf',
-        'test/2_art-3876_5.dxf',
-        'test/1_art-3876_5.dxf',
+        # 'test/1_art-3876_2.dxf',
+        # 'test/2_art-3876_5.dxf',
+        # 'test/1_art-3876_5.dxf',
+        #
+        # 'test/1_art-3876_1_lapa.dxf',
+        # 'test/1_art-3876_2.dxf',
+        # 'test/2_art-3876_5.dxf',
+        # 'test/1_art-3876_5.dxf',
 
         # 'test/2_art-3876_1_lapa.dxf',
         # 'test/2_art-3876_2.dxf',

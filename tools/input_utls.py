@@ -72,7 +72,7 @@ def find_shape_from_dxf(file_name):
             #         spline_polygon.append(scaling_coordinates(x=x, y=y))
             # else:
             bspline = e.construction_tool()
-            xy_pts = [p.xy for p in bspline.flattening(distance=1, segments=10)]  # 1 - 20
+            xy_pts = [p.xy for p in bspline.flattening(distance=1, segments=30)]  # 1 - 20
             for x, y, _ in xy_pts:
                 if not SPLIT_SPLINES:
                     add_spline_dots_flag(first_spline, first_spline_points, [x, y], spline_polygon)

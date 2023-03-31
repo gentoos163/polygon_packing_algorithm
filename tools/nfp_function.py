@@ -10,11 +10,13 @@ import matplotlib.patches as patches
 import pyclipper
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
-from settings import SPACING, ROTATIONS, BIN_HEIGHT, \
+from settings import SPACING, ROTATIONS, BIN_HEIGHT, BIN_WIDTH, \
     POPULATION_SIZE, MUTA_RATE, SIMPLIFYING_POLYGONS, RESULT_ROTATION_ANGLE
-from copy import deepcopy
 import numpy as np
+import concurrent.futures
 
+import math
+from shapely import affinity
 
 PI_OVER_180 = math.pi / 180
 
@@ -157,22 +159,45 @@ class Nester:
         else:
             self.GA.generation()
 
-        # 计算每一组基因的适应值
-        for i in range(0, self.GA.config['populationSize']):
-            res = self.find_fitness(self.GA.population[i])
-            self.GA.population[i]['fitness'] = res['fitness']
-            self.results.append(res)
+        # # 计算每一组基因的适应值
+        # for i in range(0, self.GA.config['populationSize']):
+        #     res = self.find_fitness(self.GA.population[i])
+        #     self.GA.population[i]['fitness'] = res['fitness']
+        #     self.results.append(res)
+        #
+        # # 找最佳结果
+        # if len(self.results) > 0:
+        #     best_result = self.results[0]
+        #
+        #     for p in self.results:
+        #         if p['fitness'] < best_result['fitness']:
+        #             best_result = p
+        #
+        #     if self.best is None or best_result['fitness'] < self.best['fitness']:
+        #         self.best = best_result
 
-        # 找最佳结果
+        # Создаем пул потоков с максимальным количеством потоков
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            # Запускаем задачу для каждого индивида
+            futures = [executor.submit(self.calculate_fitness, i) for i in range(self.GA.config['populationSize'])]
+
+            # Ожидаем завершения всех задач
+            for future in concurrent.futures.as_completed(futures):
+                res = future.result()
+                self.results.append(res)
+
+        # Находим лучшее решение
         if len(self.results) > 0:
-            best_result = self.results[0]
-
-            for p in self.results:
-                if p['fitness'] < best_result['fitness']:
-                    best_result = p
-
+            best_result = min(self.results, key=lambda x: x['fitness'])
             if self.best is None or best_result['fitness'] < self.best['fitness']:
                 self.best = best_result
+
+    def calculate_fitness(self, i):
+        # Вычисляем пригодность для i-го индивида
+        res = self.find_fitness(self.GA.population[i])
+        self.GA.population[i]['fitness'] = res['fitness']
+        return res
+
 
     def find_fitness(self, individual):
         """
@@ -334,16 +359,27 @@ class Nester:
         :param nfp: nfp多边形数据
         :return:
         """
+        # if nfp:
+        #     for i in range(0, len(nfp)):
+        #
+        #         if nfp[i]:
+        #             key = json.dumps(nfp[i]['key'])
+        #             self.nfp_cache[key] = nfp[i]['value']
+        #
+        # # worker的nfp cache 只保留一次
+        # self.worker.nfpCache = copy.deepcopy(self.nfp_cache)
+        # # self.worker.nfpCache.update(self.nfpCache)
+        # return self.worker.place_paths()
+        new_nfp_cache = self.nfp_cache.copy()  # create a new dictionary
+        self.worker.nfpCache = new_nfp_cache  # use the new dictionary
         if nfp:
             for i in range(0, len(nfp)):
-
                 if nfp[i]:
                     key = json.dumps(nfp[i]['key'])
-                    self.nfp_cache[key] = nfp[i]['value']
-
-        # worker的nfp cache 只保留一次
-        self.worker.nfpCache = copy.deepcopy(self.nfp_cache)
-        # self.worker.nfpCache.update(self.nfpCache)
+                    new_nfp_cache[key] = nfp[i]['value']  # use the new dictionary to add the values
+        # worker's nfp cache only keeps once
+        self.worker.nfpCache = copy.deepcopy(new_nfp_cache)
+        self.nfp_cache = new_nfp_cache  # update self.nfp_cache
         return self.worker.place_paths()
 
     def show_result(self):
@@ -384,6 +420,7 @@ class Nester:
             return None
         return clean
 
+
     def get_result_npf(self):
         shift_data = self.best['placements']
         polygons = self.shapes
@@ -414,9 +451,9 @@ class Nester:
         #     # Использование текущего набора
         #     solution.append(tmp_bin)
 
+
         shapes = [Polygon([[p['x'], p['y']] for p in polygon['original_points']]) if SIMPLIFYING_POLYGONS
                   else Polygon([[p['x'], p['y']] for p in polygon['points']]) for polygon in polygons]
-
 
         solution = []
         for s_data in shift_data:
@@ -429,21 +466,11 @@ class Nester:
                 tmp_bin.append(current_shape)
             solution.append(tmp_bin)
 
-
-
-        # # Находим центр масс
-        # center_x = sum([shape.center()[0] for shape in solution[-1]]) / len(solution[-1])
-        # center_y = sum([shape.center[1] for shape in solution[-1]]) / len(solution[-1])
-        #
-        # # Поворачиваем все полигоны вокруг центра масс на заданный угол
-        # for polygon in solution[-1]:
-        #     polygon.rotate(-180, center_x, center_y)
-
         return solution
+
 
     def get_polygon_coordinates(self):
         polygons = self.get_result_npf()
-
         ## Старый код, на всякий случай
 
         # result = []
