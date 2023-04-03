@@ -1,7 +1,7 @@
 # coding=utf8
 from settings import CONTOUR_SCALING, SIMPLIFYING_POLYGONS, SPLIT_SPLINES
 import ezdxf as ez
-
+import numpy as np
 
 def find_shape_from_dxf(file_name):
     """
@@ -19,7 +19,7 @@ def find_shape_from_dxf(file_name):
     коврики и в них отверстия под люверсы.
     Поэтому было решено разделить коврики на отдельные файлы. Но осталась проблема с люверсами.
     Для ее решения я точки координат коврика и люверсов представляю одним контуром,
-    но в начало люверсов помещаю задваиване начальной позиции, чтобы после размещения найти их
+    но в начало люверсов помещаю задваивание начальной позиции, чтобы после размещения найти их
     и разделить на отдельные контуры.
     """
     for e in dxf.entities:
@@ -119,9 +119,11 @@ def scaling_coordinates(x, y) -> list:
 def add_spline_dots_flag(first_spline: bool, first_spline_points: bool, points: list, spline_polygon: list):
     if first_spline or not first_spline_points:
         return
-    spline_polygon.append(scaling_coordinates(x=points[0], y=points[1]))
-    spline_polygon.append(scaling_coordinates(x=points[0], y=points[1]))
-    spline_polygon.append(scaling_coordinates(x=points[0], y=points[1]))
+    x = points[0]
+    y = points[1]
+    spline_polygon.append(scaling_coordinates(x=x, y=y))
+    spline_polygon.append(scaling_coordinates(x=x, y=y))
+    spline_polygon.append(scaling_coordinates(x=x, y=y))
 
 
 def find_flags_and_break_shapes(shapes: list) -> list:

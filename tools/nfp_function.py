@@ -1,22 +1,25 @@
 # -*- coding: utf-8 -*-
-from tools import placement_worker, nfp_utls
 import math
 import json
-import random
 import copy
-from Polygon import Polygon
+import concurrent.futures
+
+from Polygon import Polygon, cPolygon
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import pyclipper
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
-from settings import SPACING, ROTATIONS, BIN_HEIGHT, BIN_WIDTH, \
-    POPULATION_SIZE, MUTA_RATE, SIMPLIFYING_POLYGONS, RESULT_ROTATION_ANGLE
 import numpy as np
-import concurrent.futures
 
-import math
-from shapely import affinity
+from tools.input_utls import find_flags_and_break_shapes
+from tools.GeneticAlgorithm import GeneticAlgorithm
+from tools import placement_worker, nfp_utls
+from settings import SPACING, ROTATIONS, BIN_HEIGHT, BIN_WIDTH, \
+    POPULATION_SIZE, MUTA_RATE, SIMPLIFYING_POLYGONS, \
+    RESULT_ROTATION_ANGLE, RESULT_OFFSET_X, RESULT_OFFSET_Y
+
+
 
 PI_OVER_180 = math.pi / 180
 
@@ -40,7 +43,7 @@ class Nester:
         self.nfp_cache = {}  # 缓存中间计算结果
         # 遗传算法的参数
         self.config = {
-            'curveTolerance': 0.7,  # Максимальная ошибка, допускаемая для преобразования сегментов Безье и дуги.
+            'curveTolerance': 0.8,  # Максимальная ошибка, допускаемая для преобразования сегментов Безье и дуги.
             # Единицы в SVG. Меньшие допуски требуют больше времени для расчета
             'spacing': SPACING,  # 组件间的间隔
             'rotations': ROTATIONS,  # Детализация поворота, n частей по 360°, например: 4 = [0, 90, 180, 270]
@@ -159,6 +162,8 @@ class Nester:
         else:
             self.GA.generation()
 
+        ## СТАРЫЙ КОД НА ВСЯКИЙ СЛУЧАЙ
+
         # # 计算每一组基因的适应值
         # for i in range(0, self.GA.config['populationSize']):
         #     res = self.find_fitness(self.GA.population[i])
@@ -177,7 +182,7 @@ class Nester:
         #         self.best = best_result
 
         # Создаем пул потоков с максимальным количеством потоков
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             # Запускаем задачу для каждого индивида
             futures = [executor.submit(self.calculate_fitness, i) for i in range(self.GA.config['populationSize'])]
 
@@ -400,24 +405,37 @@ class Nester:
         return result
 
     def clean_polygon(self, polygon):
-        simple = pyclipper.SimplifyPolygon(polygon, pyclipper.PFT_NONZERO)
+
+        shapes = find_flags_and_break_shapes([polygon])
+        biggest = shapes[0]
+        biggest_area = pyclipper.Area(biggest)
+        # Учитывая конечные точки, найдите площадь многоугольника,
+        # порядок конечных точек должен быть против часовой стрелки, иначе результат будет отрицательным
+        for i in range(1, len(shapes)):
+            area = abs(pyclipper.Area(shapes[i]))
+            if area > biggest_area:
+                biggest = shapes[i]
+                biggest_area = area
+
+        simple = pyclipper.SimplifyPolygon(biggest, pyclipper.PFT_NONZERO)
 
         if simple is None or len(simple) == 0:
             return None
 
-        biggest = simple[0]
-        biggest_area = pyclipper.Area(biggest)
-        # Учитывая конечные точки, найдите площадь многоугольника,
-        # порядок конечных точек должен быть против часовой стрелки, иначе результат будет отрицательным
-        for i in range(1, len(simple)):
-            area = abs(pyclipper.Area(simple[i]))
-            if area > biggest_area:
-                biggest = simple[i]
-                biggest_area = area
+        # biggest = simple[0]
+        # biggest_area = pyclipper.Area(biggest)
+        # # Учитывая конечные точки, найдите площадь многоугольника,
+        # # порядок конечных точек должен быть против часовой стрелки, иначе результат будет отрицательным
+        # for i in range(1, len(simple)):
+        #     area = abs(pyclipper.Area(simple[i]))
+        #     if area > biggest_area:
+        #         biggest = simple[i]
+        #         biggest_area = area
 
         clean = pyclipper.CleanPolygon(biggest, self.config['curveTolerance'])
         if clean is None or len(clean) == 0:
             return None
+
         return clean
 
 
@@ -451,9 +469,8 @@ class Nester:
         #     # Использование текущего набора
         #     solution.append(tmp_bin)
 
-
-        shapes = [Polygon([[p['x'], p['y']] for p in polygon['original_points']]) if SIMPLIFYING_POLYGONS
-                  else Polygon([[p['x'], p['y']] for p in polygon['points']]) for polygon in polygons]
+        points_type = 'original_points' if SIMPLIFYING_POLYGONS else 'points'
+        shapes = [Polygon([[p['x'], p['y']] for p in polygon[points_type]]) for polygon in polygons]
 
         solution = []
         for s_data in shift_data:
@@ -466,8 +483,12 @@ class Nester:
                 tmp_bin.append(current_shape)
             solution.append(tmp_bin)
 
+        if RESULT_ROTATION_ANGLE > 0:
+            for s in solution:
+                for pol in s:
+                    pol.rotate(PI_OVER_180 * RESULT_ROTATION_ANGLE, 0, 0)
+                    pol.shift(RESULT_OFFSET_X, RESULT_OFFSET_Y)
         return solution
-
 
     def get_polygon_coordinates(self):
         polygons = self.get_result_npf()
@@ -480,182 +501,11 @@ class Nester:
         # return result
 
         return [np.copy(s.contour(0)) for polygon in polygons for s in polygon]
-
-
-def draw_result(shift_data, polygons, bin_polygon, bin_bounds):
-    """
-    Получите данные о перемещении и вращении из результата, 
-    переместите исходное изображение в целевое место и сохраните результат.
-    :param shift_data: Преобразование и ротация данных
-    :param polygons: необработанные графические данные
-    :param bin_polygon:
-    :param bin_bounds:
-    :return:
-    """
-    # Класс производственного полигона
-    shapes = list()
-    for polygon in polygons:
-        contour = [[p['x'], p['y']] for p in polygon['points']]
-        shapes.append(Polygon(contour))
-
-    bin_shape = Polygon([[p['x'], p['y']] for p in bin_polygon['points']])
-    shape_area = bin_shape.area(0)
-
-    solution = list()
-    rates = list()
-    for s_data in shift_data:
-        # Цикл представляет собой набор контейнера
-        tmp_bin = list()
-        total_area = 0.0
-        for move_step in s_data:
-            if move_step['rotation'] != 0:
-                # Вращение начала координат
-                shapes[int(move_step['p_id'])].rotate(math.pi / 180 * move_step['rotation'], 0, 0)
-            # перевод
-            shapes[int(move_step['p_id'])].shift(move_step['x'], move_step['y'])
-            tmp_bin.append(shapes[int(move_step['p_id'])])
-            total_area += shapes[int(move_step['p_id'])].area(0)
-        # Использование текущего набора
-        rates.append(total_area / shape_area)
-        solution.append(tmp_bin)
-    # показать результат
-    draw_polygon(solution, rates, bin_bounds, bin_shape)
-
-
-class GeneticAlgorithm():
-    """
-    Генетические алгоритмы
-    """
-
-    def __init__(self, adam, bin_polygon, config):
-        """
-        Инициализируйте параметры и сгенерируйте группы генов в соответствии с параметрами
-        :param adam: графика
-        :param bin_polygon: 面布
-        :param config: Параметры алгоритма
-        """
-        self.bin_bounds = bin_polygon['points']
-        self.bin_bounds = {
-            'width': bin_polygon['width'],
-            'height': bin_polygon['height'],
-        }
-        self.config = config
-        self.bin_polygon = bin_polygon
-        angles = list()  # 添加角度
-        shapes = copy.deepcopy(adam)
-        for shape in shapes:
-            angles.append(self.random_angle(shape))
-
-        # 基因群，图形顺序和图形旋转的角度作为基因编码
-        self.population = [{'placement': shapes, 'rotation': angles}]
-
-        for i in range(1, self.config['populationSize']):
-            mutant = self.mutate(self.population[0])
-            self.population.append(mutant)
-
-    def random_angle(self, shape):
-        """
-        随机旋转角度的选取
-        :param shape:
-        :return:
-        """
-        angle_list = list()
-        for i in range(0, self.config['rotations']):
-            angle_list.append(i * (360 / self.config['rotations']))
-
-        # 打乱顺序
-        def shuffle_array(data):
-            for i in range(len(data) - 1, 0, -1):
-                j = random.randint(0, i)
-                data[i], data[j] = data[j], data[i]
-            return data
-
-        angle_list = shuffle_array(angle_list)
-
-        # 查看选择后图形是否能放置在里面
-        for angle in angle_list:
-            rotate_part = nfp_utls.rotate_polygon(shape[1]['points'], angle)
-            # 是否判断旋转出界,没有出界可以返回旋转角度,rotate 只是尝试去转，没有真正改变图形坐标
-            if rotate_part['width'] < self.bin_bounds['width'] and rotate_part['height'] < self.bin_bounds['height']:
-                return angle  # 将angle_list[i] 修改为angle
-
-        return 0
-
-    def mutate(self, individual):  # 变异1：交换两个物品的排放位置   变异2：转换一个物品的角度
-        clone = {
-            'placement': individual['placement'][:],
-            'rotation': individual['rotation'][:]
-        }
-        for i in range(0, len(clone['placement'])):
-            if random.random() < 0.01 * self.config['mutationRate']:
-                if i + 1 < len(clone['placement']):
-                    clone['placement'][i], clone['placement'][i + 1] = clone['placement'][i + 1], clone['placement'][i]
-
-        if random.random() < 0.01 * self.config['mutationRate']:
-            clone['rotation'][i] = self.random_angle(clone['placement'][i])
-        return clone
-
-    def generation(self):
-        # 适应度 从大到小排序
-        self.population = sorted(self.population, key=lambda a: a['fitness'])
-        new_population = [self.population[0]]
-        while len(new_population) < self.config['populationSize']:
-            male = self.random_weighted_individual()
-            female = self.random_weighted_individual(male)
-            # 交集下一代
-            children = self.mate(male, female)
-
-            # 轻微突变
-            new_population.append(self.mutate(children[0]))
-
-            if len(new_population) < self.config['populationSize']:
-                new_population.append(self.mutate(children[1]))
-
-        print('new :', new_population)
-        self.population = new_population
-
-    def random_weighted_individual(self, exclude=None):
-        pop = self.population
-        if exclude and pop.index(exclude) >= 0:
-            pop.remove(exclude)
-
-        rand = random.random()
-        lower = 0
-        weight = 1.0 / len(pop)
-        upper = weight
-        pop_len = len(pop)
-        for i in range(0, pop_len):
-            if (rand > lower) and (rand < upper):
-                return pop[i]
-            lower = upper
-            upper += 2 * weight * float(pop_len - i) / pop_len
-        return pop[0]
-
-    def mate(self, male, female):
-        cutpoint = random.randint(0, len(male['placement']) - 1)
-        gene1 = male['placement'][:cutpoint]
-        rot1 = male['rotation'][:cutpoint]
-
-        gene2 = female['placement'][:cutpoint]
-        rot2 = female['rotation'][:cutpoint]
-
-        def contains(gene, shape_id):
-            for i in range(0, len(gene)):
-                if gene[i][0] == shape_id:
-                    return True
-            return False
-
-        for i in range(len(female['placement']) - 1, -1, -1):
-            if not contains(gene1, female['placement'][i][0]):
-                gene1.append(female['placement'][i])
-                rot1.append(female['rotation'][i])
-
-        for i in range(len(male['placement']) - 1, -1, -1):
-            if not contains(gene2, male['placement'][i][0]):
-                gene2.append(male['placement'][i])
-                rot2.append(male['rotation'][i])
-
-        return [{'placement': gene1, 'rotation': rot1}, {'placement': gene2, 'rotation': rot2}]
+        # result = []
+        # for poligon in polygons:
+        #     for s in poligon:
+        #         result.append(np.copy(list(s.exterior.coords)))
+        # return result
 
 
 def minkowski_difference(A, B):
@@ -691,6 +541,46 @@ def minkowski_difference(A, B):
     # clipper_nfp = solution[idx]
     # clipper_nfp = [{'x': clipper_nfp[i][0] + Bc[0][0] * -1, 'y': clipper_nfp[i][1] + Bc[0][1] * -1} for i in range(len(clipper_nfp))]
     # return [clipper_nfp]
+
+
+def draw_result(shift_data, polygons, bin_polygon, bin_bounds):
+    """
+    Получите данные о перемещении и вращении из результата,
+    переместите исходное изображение в целевое место и сохраните результат.
+    :param shift_data: Преобразование и ротация данных
+    :param polygons: необработанные графические данные
+    :param bin_polygon:
+    :param bin_bounds:
+    :return:
+    """
+    # Класс производственного полигона
+    shapes = list()
+    for polygon in polygons:
+        contour = [[p['x'], p['y']] for p in polygon['points']]
+        shapes.append(Polygon(contour))
+
+    bin_shape = Polygon([[p['x'], p['y']] for p in bin_polygon['points']])
+    shape_area = bin_shape.area(0)
+
+    solution = list()
+    rates = list()
+    for s_data in shift_data:
+        # Цикл представляет собой набор контейнера
+        tmp_bin = list()
+        total_area = 0.0
+        for move_step in s_data:
+            if move_step['rotation'] != 0:
+                # Вращение начала координат
+                shapes[int(move_step['p_id'])].rotate(math.pi / 180 * move_step['rotation'], 0, 0)
+            # перевод
+            shapes[int(move_step['p_id'])].shift(move_step['x'], move_step['y'])
+            tmp_bin.append(shapes[int(move_step['p_id'])])
+            total_area += shapes[int(move_step['p_id'])].area(0)
+        # Использование текущего набора
+        rates.append(total_area / shape_area)
+        solution.append(tmp_bin)
+    # показать результат
+    draw_polygon(solution, rates, bin_bounds, bin_shape)
 
 
 def draw_polygon_png(solution, bin_bounds, bin_shape, path=None):
